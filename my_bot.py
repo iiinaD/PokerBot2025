@@ -219,50 +219,22 @@ class Bot:
                                     else:
                                         play = self.fold_else_raise_bb(2, 4)
                         else: # pair on table
-                            if self.:
-                                if self.flush_cards_count(self.get_all_cards()) == 4:  # flush
-                                    if self.straight_case(self.get_all_cards()) != 0:  # straight
-                                        play = self.fold_else_raise_bb(6, 4)
-                                    else:
-                                        if self.high_card_rank(handHighCard) == 0:
-                                            play = self.fold_else_raise_bb(6, 4)
-                                        elif self.high_card_rank(handHighCard) == 1:
-                                            play = self.fold_else_raise_bb(3, 4)
-                                        else:
-                                            play = 0
-                                else:
-                                    if self.straight_case(self.get_all_cards()) != 0:  # straight
-                                        if self.high_card_rank(handHighCard) == 0:
-                                            play = self.fold_else_raise_bb(3, 4)
-                                        elif self.high_card_rank(handHighCard) == 1:
-                                            play = self.fold_else_raise_bb(2, 4)
-                                        else:
-                                            play = 0
-                                    else:
-                                        if self.high_card_rank(handHighCard) == 0:
-                                            play = self.fold_else_raise_bb(2, 4)
-                            else:
-                                if self.flush_cards_count(self.get_all_cards()) == 4:  # flush
-                                    if self.straight_case(self.get_all_cards()) != 0:  # straight
-                                        play = self.fold_else_raise_bb(6, 4)
-                                    else:
-                                        if self.high_card_rank(handHighCard) == 0:
-                                            play = self.fold_else_raise_bb(6, 4)
-                                        elif self.high_card_rank(handHighCard) == 1:
-                                            play = self.fold_else_raise_bb(3, 4)
-                                        else:
-                                            play = 0
-                                else:
-                                    if self.straight_case(self.get_all_cards()) != 0:  # straight
-                                        if self.high_card_rank(handHighCard) == 0:
-                                            play = self.fold_else_raise_bb(3, 4)
-                                        elif self.high_card_rank(handHighCard) == 1:
-                                            play = self.fold_else_raise_bb(2, 4)
-                                        else:
-                                            play = 0
-                                    else:
-                                        if self.high_card_rank(handHighCard) == 0:
-                                            play = self.fold_else_raise_bb(2, 4)
+                            if self.flush_cards_count(self.get_all_cards()) == 4:  # flush
+                                if self.straight_case(self.get_all_cards()) != 0:  # straight
+                                    play = self.fold_else_raise_bb(4, 4)
+                                else: # not close to straight
+                                    if self.high_card_rank(handHighCard) == 0: # has highest card
+                                        play = self.fold_else_raise_bb(3, 4)
+                                    else: # does not have highest card
+                                        play = 0
+                            else: # not close to flush
+                                if self.straight_case(self.get_all_cards()) != 0:  # straight
+                                    if self.high_card_rank(handHighCard) == 0: # have highest card
+                                        play = self.fold_else_raise_bb(3, 4)
+                                    else: # does not have highest card
+                                        play = 0
+                                else: # not close to straight
+                                    play = 0
                     case 3:
                         return 0
                     case 4:

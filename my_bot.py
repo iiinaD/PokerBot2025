@@ -20,14 +20,14 @@ class Bot:
                  "2": 2}
         return trans.get(char)
 
-    def getCardValueFromHand(self, i):
+    def get_card_value_from_hand(self, i):
         return self.transform(self.obs.my_hand[i][0])
 
-    def getAllCardValues(self, cards):
+    def get_all_card_values(self, cards):
         allCards = []
         for card in cards:
             allCards.append(self.transform(card[0]))
-        return allCards.sort()
+        return allCards.sort(reverse=True)
 
     def straight_case(self, cards):
         cards = list(map(lambda el: self.transform(el[0]), cards))
@@ -72,11 +72,11 @@ class Bot:
                     arr[3] += 1
         return max(arr)
 
-    def getAllCards(self):
+    def get_all_cards(self):
         return self.obs.board_cards + self.obs.my_hand
 
-    def highCardRank(self, card):
-        return self.getAllCardValues(self.getAllCards()).index(card)
+    def high_card_rank(self, card):
+        return self.get_all_card_values(self.get_all_cards()).index(card)
 
     def check_range(self, range):
         return Range(range).is_hand_in_range(self.obs.my_hand)
@@ -91,20 +91,20 @@ class Bot:
             return self.obs.get_max_raise()
         return raise_amount
 
-    def findPairValue(self):
+    def get_pair_value(self):
         seen = set()
-        for num in self.getAllCardValues(self.getAllCards()):
+        for num in self.get_all_card_values(self.get_all_cards()):
             if num in seen:
                 return num
             seen.add(num)
 
-    def foldElseRaiseBB(self, bbToFold, bbToRaise):
+    def fold_else_raise_bb(self, bbToFold, bbToRaise):
         if self.obs.get_call_size() > bbToFold * self.obs.big_blind:  ##calls
             return 0
         else:
             return self.try_raise_bb(bbToRaise)
 
-    def foldElseRaisePot(self, potToFold, potToRaise):
+    def fold_else_raise_pot(self, potToFold, potToRaise):
         if self.obs.get_call_size() > potToFold * self.obs.get_pot_size():  ##calls
             return 0
         else:
@@ -144,100 +144,143 @@ class Bot:
         play = 0
 
         boardCards = self.obs.board_cards
-        handHighCard = max(self.getCardValueFromHand(0), self.getCardValueFromHand(1))
+        handHighCard = max(self.get_card_value_from_hand(0), self.get_card_value_from_hand(1))
 
         match self.obs.get_player_count():
             case 2:
                 match self.obs.get_my_hand_type():
                     case 1:
-
+                        return 0
                     case 2:
-
+                        return 0
                     case 3:
-
+                        return 0
                     case 4:
-
+                        return 0
                     case 5:
-
+                        return 0
                     case 6:
-
+                        return 0
                     case 7:
-
+                        return 0
                     case 8:
-
+                        return 0
                     case 9:
-
+                        return 0
             case _:
                 match self.obs.get_my_hand_type():
                     case 1:
-                        if self.flush_cards_count(self.getAllCards()) == 4:  # flush
-                            if self.straight_case(self.getAllCards()) != 0:  # straight
-                                self.foldElseRaiseBB(6, 4)
+                        if self.flush_cards_count(self.get_all_cards()) == 4:  # flush
+                            if self.straight_case(self.get_all_cards()) != 0:  # straight
+                                play = self.fold_else_raise_bb(6, 4)
                             else:
-                                if self.highCardRank(handHighCard) == 4:
-                                    self.foldElseRaiseBB(6, 4)
-                                elif self.highCardRank(handHighCard) == 3:
-                                    self.foldElseRaiseBB(3, 4)
+                                if self.high_card_rank(handHighCard) == 0:
+                                    play = self.fold_else_raise_bb(6, 4)
+                                elif self.high_card_rank(handHighCard) == 1:
+                                    play = self.fold_else_raise_bb(3, 4)
                                 else:
-                                    return 0
+                                    play = 0
                         else:
-                            if self.straight_case(self.getAllCards()) != 0:  # straight
-                                if self.highCardRank(handHighCard) == 4:
-                                    self.foldElseRaiseBB(3, 4)
-                                elif self.highCardRank(handHighCard) == 3:
-                                    self.foldElseRaiseBB(2, 4)
+                            if self.straight_case(self.get_all_cards()) != 0:  # straight
+                                if self.high_card_rank(handHighCard) == 0:
+                                    play = self.fold_else_raise_bb(3, 4)
+                                elif self.high_card_rank(handHighCard) == 1:
+                                    play = self.fold_else_raise_bb(2, 4)
                                 else:
-                                    return 0
+                                    play = 0
                             else:
-                                if self.highCardRank(handHighCard) == 4:
-                                    self.foldElseRaiseBB(2, 4)
+                                if self.high_card_rank(handHighCard) == 0:
+                                    play = self.fold_else_raise_bb(2, 4)
                     case 2:
                         if self.obs.get_board_hand_type() != 2:  # par not on table
-                            if self.highCardRank(self.findPairValue()) < 3:  # par is highest card
-                                if self.flush_cards_count(self.getAllCards()) == 4:  # flush
-                                    if self.straight_case(self.getAllCards()) != 0:  # straight
-                                        return self.try_raise_pot(1)
+                            if self.high_card_rank(self.get_pair_value()) == 0:  # par is highest card
+                                if self.flush_cards_count(self.get_all_cards()) == 4:  # flush
+                                    if self.straight_case(self.get_all_cards()) != 0:  # straight
+                                        play = self.try_raise_pot(1)
                                     else:
-                                        return self.try_raise_pot(0.5)
+                                        play = self.try_raise_pot(0.5)
                                 else:
-                                    if self.straight_case(self.getAllCards()) != 0:  # straight
-                                        return self.try_raise_pot(0.5)
+                                    if self.straight_case(self.get_all_cards()) != 0:  # straight
+                                        play = self.try_raise_pot(0.5)
                                     else:
-                                        self.foldElseRaisePot(0.5, 0.5)
+                                        play = self.fold_else_raise_pot(0.5, 0.5)
                             else:
-                                if self.flush_cards_count(self.getAllCards()) == 4:  # flush
-                                    if self.straight_case(self.getAllCards()) != 0:  # straight
+                                if self.flush_cards_count(self.get_all_cards()) == 4:  # flush
+                                    if self.straight_case(self.get_all_cards()) != 0:  # straight
                                         if self.obs.get_call_size() > 11 * self.obs.big_blind:  ##calls
-                                            return 0
+                                            play = 0
                                         else:
-                                            return self.try_raise_pot(0.5)
+                                            play = self.try_raise_pot(0.5)
                                     else:
-                                        self.foldElseRaiseBB(5, 4)
+                                        play = self.fold_else_raise_bb(5, 4)
                                 else:
-                                    if self.straight_case(self.getAllCards()) != 0:  # straight
-                                        self.foldElseRaiseBB(3, 4)
+                                    if self.straight_case(self.get_all_cards()) != 0:  # straight
+                                        play = self.fold_else_raise_bb(3, 4)
                                     else:
-                                        self.foldElseRaiseBB(2, 4)
-                        else:
-
+                                        play = self.fold_else_raise_bb(2, 4)
+                        else: # pair on table
+                            if self.:
+                                if self.flush_cards_count(self.get_all_cards()) == 4:  # flush
+                                    if self.straight_case(self.get_all_cards()) != 0:  # straight
+                                        play = self.fold_else_raise_bb(6, 4)
+                                    else:
+                                        if self.high_card_rank(handHighCard) == 0:
+                                            play = self.fold_else_raise_bb(6, 4)
+                                        elif self.high_card_rank(handHighCard) == 1:
+                                            play = self.fold_else_raise_bb(3, 4)
+                                        else:
+                                            play = 0
+                                else:
+                                    if self.straight_case(self.get_all_cards()) != 0:  # straight
+                                        if self.high_card_rank(handHighCard) == 0:
+                                            play = self.fold_else_raise_bb(3, 4)
+                                        elif self.high_card_rank(handHighCard) == 1:
+                                            play = self.fold_else_raise_bb(2, 4)
+                                        else:
+                                            play = 0
+                                    else:
+                                        if self.high_card_rank(handHighCard) == 0:
+                                            play = self.fold_else_raise_bb(2, 4)
+                            else:
+                                if self.flush_cards_count(self.get_all_cards()) == 4:  # flush
+                                    if self.straight_case(self.get_all_cards()) != 0:  # straight
+                                        play = self.fold_else_raise_bb(6, 4)
+                                    else:
+                                        if self.high_card_rank(handHighCard) == 0:
+                                            play = self.fold_else_raise_bb(6, 4)
+                                        elif self.high_card_rank(handHighCard) == 1:
+                                            play = self.fold_else_raise_bb(3, 4)
+                                        else:
+                                            play = 0
+                                else:
+                                    if self.straight_case(self.get_all_cards()) != 0:  # straight
+                                        if self.high_card_rank(handHighCard) == 0:
+                                            play = self.fold_else_raise_bb(3, 4)
+                                        elif self.high_card_rank(handHighCard) == 1:
+                                            play = self.fold_else_raise_bb(2, 4)
+                                        else:
+                                            play = 0
+                                    else:
+                                        if self.high_card_rank(handHighCard) == 0:
+                                            play = self.fold_else_raise_bb(2, 4)
                     case 3:
-
+                        return 0
                     case 4:
-
+                        return 0
                     case 5:
-
+                        return 0
                     case 6:
-
+                        return 0
                     case 7:
-
+                        return 0
                     case 8:
-
+                        return 0
                     case 9:
-
+                        return 0
         print("WE IN")
         print(f"FLUSH count board: {self.flush_cards_count(boardCards)}")
-        print(f"FLUSH count full: {self.flush_cards_count(self.getAllCards())}")
-        print(self.straight_case(self.getAllCards()))
+        print(f"FLUSH count full: {self.flush_cards_count(self.get_all_cards())}")
+        print(self.straight_case(self.get_all_cards()))
 
         if self.obs.get_player_count() == 2 or self.obs.get_player_count() == 3:
             x = 2

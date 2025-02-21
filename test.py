@@ -4,10 +4,11 @@ import json
 
 def run_benchmark(bots, run_count):
     bot_instances = [b.Bot() for b in bots]
-    data = [{'name': b.get_name(), 'wins': 0} for b in bot_instances]
+    data = [{'name': b.get_name(), 'wins': 0, 'seconds': 0} for b in bot_instances]
     for i in range(run_count):
         res, _ = play_tournament_table(bot_instances, 1000)
         data[res[0]['id']]['wins'] += 1
+        data[res[1]['id']]['seconds'] += 1
         print(chr(27) + "[2J")
         print("--- " + str(i+1) + "/" + str(run_count) + " ---")
         [print(d) for d in data]

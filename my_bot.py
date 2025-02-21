@@ -6,6 +6,7 @@ import random
 
 #############################################################
 # QUESTIONS:
+# - WTF IS SHOWDOWN..
 # - 
 #############################################################
 
@@ -19,6 +20,9 @@ class Bot:
         trans = {"A": 14, "K": 13, "Q": 12, "J": 11, "T": 10, "9": 9, "8": 8, "7": 7, "6": 6, "5": 5, "4": 4, "3": 3,
                  "2": 2}
         return trans.get(char)
+    
+    def get_pot_odds(self):
+        return self.obs.get_call_size() / self.obs.get_pot_size()
 
     def get_card_value_from_hand(self, i):
         return self.transform(self.obs.my_hand[i][0])
@@ -91,7 +95,7 @@ class Bot:
         return raise_amount
 
     def get_pair_value_not_on_board(self):
-        val = get_pair_value(self, self.obs.board_cards)
+        val = self.get_pair_value(self, self.obs.board_cards)
         cards = (self.get_card_values(self.get_all_cards()).remove(val)).remove(val)
         return self.get_pair_value(cards)
 
@@ -101,9 +105,10 @@ class Bot:
             if num in seen:
                 return num
             seen.add(num)
+        return None
 
     def fold_else_call(self, bb_to_fold):
-        if seelf.obs.get_call_size() > bb_to_fold * elf.obs.big_blind:
+        if self.obs.get_call_size() > bb_to_fold * self.obs.big_blind:
             return 0
         return 1
 
@@ -118,6 +123,54 @@ class Bot:
             return 0
         else:
             return self.try_raise_pot(potToRaise)
+        
+    def bastian_replace(self):
+        return 0
+
+    def pot_odds_call(self, amount):
+        pot_odds = self.get_pot_odds()
+        if pot_odds > amount:
+            return 0
+        else:
+            return 1
+    
+    def pot_odds_raise_bb(self, amount, raise_amount):
+        pot_odds = self.get_pot_odds()
+        if pot_odds > amount:
+            return 0
+        else:
+            return raise_amount * self.obs.big_blind
+        
+    def pot_odds_raise_pot(self, amount, raise_amount):
+        pot_odds = self.get_pot_odds()
+        if pot_odds > amount:
+            return 0
+        else:
+            return raise_amount * self.obs.get_pot_size()
+    
+    def count_better_flushes(self):
+        flush_suit = self.obs.board_cards[0][1]
+        hand_card_in_suit = ""
+        if self.obs.my_hand[0][1] == flush_suit:
+            hand_card_in_suit = self.transform(self.obs.my_hand[0][0])
+        if self.obs.my_hand[1][1] == flush_suit:
+            if hand_card_in_suit != "":
+                hand_card_in_suit = max(self.transform(self.obs.my_hand[1][0]), hand_card_in_suit)       
+            else:
+                hand_card_in_suit = self.transform(self.obs.my_hand[1][0])
+        bc = self.get_card_values(self.obs.board_cards())
+        count = 0
+        for i in [14,13,12,11,10,9,8,7,6,5,4,3,2]:
+            if i == hand_card_in_suit:
+                return count, True
+            if i == min(bc):
+                return count, False
+            if i not in bc:
+                count += 1
+        return count
+                
+
+            
 
     def pre_flop(self):
         play = 0
@@ -132,6 +185,8 @@ class Bot:
                         play = self.try_raise_pot(2)
                 elif self.check_range("44+, A2s+, K3s+, Q6s+, J8s+, T8s+, 98s, A4o+, K8o+, Q9o+, JTo"):
                     play = self.try_raise_pot(2)
+                else: 
+                    play = 0
             case 3:
                 if self.obs.get_call_size() > 8 * self.obs.big_blind:
                     if self.check_range("77+, ATs+, KQs, AQo+"):
@@ -147,6 +202,8 @@ class Bot:
                         play = self.try_raise_pot(2)
                 elif self.check_range("77+, A8s+, KTs+, QJs, AJo+, KQo"):
                     play = self.try_raise_pot(2)
+                else:
+                    play = 0
         return play  # All-in
 
     def post_flop(self):
@@ -179,7 +236,7 @@ class Bot:
             case _:
                 # Need to take chance of opponent flush and straight into account
                 # need to make changes to high card
-                #stfu
+                # add pot odds + ask bastian
                 match self.obs.get_my_hand_type():
                     case 1: # have high card
                         if self.flush_cards_count(self.get_all_cards()) == 4:  # flush
@@ -297,9 +354,6 @@ class Bot:
                     case 9: # straight flush - KNEP DEM
                         play = self.try_raise_pot(1)
 
-        if self.obs.get_player_count() == 2 or self.obs.get_player_count() == 3:
-            x = 2
-
         return play
 
     def turn(self):
@@ -354,7 +408,7 @@ class Bot:
                                     elif self.flush_cards_count(boardCards) == 3: # flush chance lower on board
                                         if self.straight_case(self.get_all_cards()) != 0:  # straight
                                             if self.straight_case(boardCards) != 0: # if straight chance is on board
-                                                    play = 0
+                                                play = 0
                                             else: # straight chance not on board
                                                 play = self.fold_else_call(2)
                                         else: # we have no straight chance
@@ -426,16 +480,29 @@ class Bot:
 
                     case 3: # have two pairs
                         if self.obs.get_board_hand_type() != 2: # pair not on table
-                            if self.flush_cards_count(boardCards) == 3:  # opponent flush chance
-                                if self.in_a_row(boardCards, 3):  # opponent straight chance
-                                    play = self.fold_else_raise_bb(4,4)
-                                else: # opponent not straight
-                                    play = self.fold_else_raise_bb(6,4)
-                            else: # opponent not flush
-                                if self.in_a_row(boardCards, 3):  # opponent straight chance
-                                    play = self.fold_else_raise_pot(0.5,0.5)
-                                else: # opponent not straight
-                                    play = self.try_raise_pot(2)
+                            if self.flush_cards_count(self.get_all_cards()) == 4: # our flush chance
+                                if self.flush_cards_count(boardCards) == 4:  # opponent flush chance
+                                    if self.in_a_row(boardCards, 3):  # opponent straight chance
+                                        play = self.fold_else_raise_bb(4,4)
+                                    else: # opponent not straight
+                                        play = self.fold_else_raise_bb(6,4)
+                                else: # opponent not flush
+                                    if self.in_a_row(boardCards, 3):  # opponent straight chance
+                                        play = self.fold_else_raise_pot(0.5,0.5)
+                                    else: # opponent not straight
+                                        play = self.try_raise_pot(2)
+                            else:
+                                if self.flush_cards_count(boardCards) == 4:  # opponent flush chance
+                                    if self.in_a_row(boardCards, 3):  # opponent straight chance
+                                        play = self.fold_else_raise_bb(4,4)
+                                    else: # opponent not straight
+                                        play = self.fold_else_raise_bb(6,4)
+                                else: # opponent not flush
+                                    if self.in_a_row(boardCards, 3):  # opponent straight chance
+                                        play = self.fold_else_raise_pot(0.5,0.5)
+                                    else: # opponent not straight
+                                        play = self.try_raise_pot(2)
+                            
                         else: # pair on table
                             if self.get_card_rank_from_cards(self.get_pair_value_not_on_board()) == 0: # our pair is higher than board pair
                                 play = self.fold_else_raise_bb(8,4)
@@ -474,15 +541,170 @@ class Bot:
                     case 9: # straight flush - KNEP DEM
                         play = self.try_raise_pot(1)
 
-        if self.obs.get_player_count() == 2 or self.obs.get_player_count() == 3:
-            x = 2
-
         return play
 
     def river(self):
-        print(self.straight_case(self.obs.board_cards + self.obs.my_hand))
-        return self.obs.get_max_raise()  # All-in
+        play = 0
 
+        boardCards = self.obs.board_cards
+        handHighCard = max(self.get_card_value_from_hand(0), self.get_card_value_from_hand(1))
+
+        match self.obs.get_player_count():
+            case 2:
+                match self.obs.get_my_hand_type():
+                    case 1:
+                        return self.obs.get_max_raise()
+                    case 2:
+                        return self.obs.get_max_raise()
+                    case 3:
+                        return self.obs.get_max_raise()
+                    case 4:
+                        return self.obs.get_max_raise()
+                    case 5:
+                        return self.obs.get_max_raise()
+                    case 6:
+                        return self.obs.get_max_raise()
+                    case 7:
+                        return self.obs.get_max_raise()
+                    case 8:
+                        return self.obs.get_max_raise()
+                    case 9:
+                        return self.obs.get_max_raise()
+            case _:
+                match self.obs.get_my_hand_type():
+                    case 1: # have high card
+                        play = 0
+                    case 2: # have pair
+                        if self.obs.get_board_hand_type == 2: # pair is on the table
+                            play = 0
+                        else: # pair is not on the table
+                            if self.flush_cards_count(boardCards) == 4 or self.straight_case(boardCards) != 0:  # opponent likely flush
+                                play = 0
+                            elif self.flush_cards_count(boardCards) == 3: # opponent not likely flush and straight
+                                if self.get_card_rank_from_cards(self.get_pair_value(self.get_all_cards())) == 0:  # par is highest card
+                                    play = self.fold_else_raise_pot(0.15,0.15)
+                                elif self.get_card_rank_from_cards(self.get_pair_value(self.get_all_cards())) == 1:
+                                    play = self.fold_else_call(10)
+                                else:
+                                    play = 0
+                            else: # opponent no flush
+                                if self.straight_case(boardCards) != 0:  # opponent straight
+                                    if self.get_card_rank_from_cards(handHighCard, self.get_all_cards()) == 0: # have highest card
+                                        play = self.fold_else_raise_bb(3, 4)
+                                    else: # does not have highest card
+                                        play = 0
+                                else: # not close to straight
+                                    play = 0
+                    case 3: # have two pairs
+                        if self.obs.get_board_hand_type() == 2: # pair on table
+                            if self.flush_cards_count(boardCards) == 4:  # opponent flush chance
+                                if self.straight_case(boardCards) != 0:  # opponent straight chance
+                                    play = self.bastian_replace()
+                                else: # opponent not straight
+                                    play = self.bastian_replace()
+                            else: # opponent not flush
+                                if self.straight_case(boardCards) != 0:  # opponent straight chance
+                                    play = self.bastian_replace()
+                                else: # opponent not straight
+                                    play = self.bastian_replace()
+                        elif self.obs.get_board_hand_type == 3: # two pair on table
+                            play = self.bastian_replace()
+                        else: # nothing on table
+                            if self.flush_cards_count(boardCards) == 4:  # opponent flush chance
+                                if self.straight_case(boardCards) != 0:  # opponent straight chance
+                                    play = self.bastian_replace()
+                                else: # opponent not straight
+                                    play = self.bastian_replace()
+                            else: # opponent not flush
+                                if self.straight_case(boardCards) != 0:  # opponent straight chance
+                                    play = self.bastian_replace()
+                                else: # opponent not straight
+                                    play = self.bastian_replace()
+                    case 4: # have set
+                        if self.obs.get_board_hand_type() == 4: # set on table
+                            play = self.bastian_replace()
+                        elif self.obs.get_board_hand_type() == 2: # pair on table
+                            if self.flush_cards_count(boardCards) == 4:  # opponent flush chance
+                                if self.straight_case(boardCards) != 0:  # opponent straight chance
+                                    play = self.bastian_replace()
+                                else: # opponent not straight
+                                    play = self.bastian_replace()
+                            else: # opponent not flush
+                                if self.straight_case(boardCards) != 0:  # opponent straight chance
+                                    play = self.bastian_replace()
+                                else: # opponent not straight
+                                    play = self.bastian_replace()
+                        else: # pair on hand
+                            if self.flush_cards_count(boardCards) == 4:  # opponent flush chance
+                                if self.straight_case(boardCards) != 0:  # opponent straight chance
+                                    play = self.bastian_replace()
+                                else: # opponent not straight
+                                    play = self.bastian_replace()
+                            else: # opponent not flush
+                                if self.straight_case(boardCards) != 0:  # opponent straight chance
+                                    play = self.bastian_replace()
+                                else: # opponent not straight
+                                    play = self.bastian_replace()      
+                    case 5: # have straight
+                        if self.obs.get_board_hand_type() == 5: # straight on table
+                            if self.flush_cards_count(boardCards) == 4: # opponent flush chance
+                                play = self.bastian_replace()
+                            else:
+                                play = self.bastian_replace()
+                        elif self.straight_case(boardCards) != 0: # opponent straight chance 
+                            if self.flush_cards_count(boardCards) == 4: # opponent flush chance
+                                if self.obs.get_board_hand_type() == 2: # pair on table
+                                    play = self.bastian_replace()
+                                else: # pair not on table
+                                    play = self.bastian_replace()
+                            else: # opponent no flush chance
+                                if self.obs.get_board_hand_type() == 2: # pair on table
+                                    play = self.bastian_replace()
+                                else: # pair not on table
+                                    play = self.bastian_replace()
+                        else: # both hand cards used for straight
+                            if self.flush_cards_count(boardCards) == 4: # opponent flush chance
+                                if self.obs.get_board_hand_type() == 2: # pair on table
+                                    play = self.bastian_replace()
+                                else: # pair not on table
+                                    play = self.bastian_replace()
+                            else: # opponent no flush chance
+                                if self.obs.get_board_hand_type() == 4: # set on table
+                                    play = self.bastian_replace()
+                                else:
+                                    if self.obs.get_board_hand_type() == 2: # pair on table
+                                        play = self.bastian_replace()
+                                    else: # pair not on table
+                                        play = self.bastian_replace()
+                    case 6: # flush
+                        if self.obs.get_board_hand_type() == 6: # flush on table 
+                            flush_count, hand_better = self.count_better_flushes()
+                            if flush_count == 123054325432:
+                                if hand_better:
+                                    play = self.bastian_replace()
+                                else:
+                                    play = self.bastian_replace()
+                            else:
+                                if hand_better:
+                                    play = self.bastian_replace()
+                                else:
+                                    play = self.bastian_replace()
+
+                        elif self.flush_cards_count(boardCards) == 4:  # opponent close to flush
+                            play = self.bastian_replace()
+                        else: # opponent not close to flush
+                            play = self.bastian_replace()
+                    case 7: # full house
+                        play = self.try_raise_bb(43)
+                    case 8: # four in a row - knep dem
+                        play = self.try_raise_pot(1)
+                    case 9: # straight flush - KNEP DEM
+                        play = self.try_raise_pot(1)
+
+        return play
+
+
+    
     def showdown(self):
         print(self.straight_case(self.obs.board_cards + self.obs.my_hand))
         return self.obs.get_max_raise()  # All-in
